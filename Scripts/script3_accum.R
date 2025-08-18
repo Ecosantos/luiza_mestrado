@@ -1,18 +1,16 @@
 library(vegan)
 library(ggplot2)
 terra::rast(system.file("ex/elev.tif", package="terra"))
+library(dplyr)
 
-#Species Accumulation
+# SPECIES ACCUMULATION
 
-mat_uni1 <- mat_uni$PAM 
-str(mat_uni1)
-class(mat_uni1)
-head(mat_uni1)
-mat_uni1_clean <- mat_uni1[, sapply(mat_uni1, is.numeric)]
-accumula <- specaccum(mat_uni1_clean)
+mat_uni2 <- mat_uni1$PAM 
+mat_uni2_clean <- mat_uni2[, sapply(mat_uni2, is.numeric)]
+accumula <- specaccum(mat_uni2_clean)
 plot(accumula)
 save(accumula, file = "Data/accumula.RData")
-save(mat_uni1_clean,file = "Data/mat_uni_clean.RData")
+save(mat_uni2_clean,file = "Data/mat_uni2_clean.RData")
 
 # Plot Sites
 plot_data <- data.frame("Locais" = c(0, accumula$sites),
@@ -31,44 +29,45 @@ g
 
 ggsave("Figures/Rarefac.png")
 
-# Curva de Rarefação 
+# RAREFACTION CURVE
 library(forcats)
 library(iNEXT)
 library(vegan)
 library(tidyverse)
 
 
-site_totals <- rowSums(mat_uni1_clean)
-mat_uni1_final <- mat_uni1_clean[site_totals > 0, ]
+site_totals <- rowSums(mat_uni2_clean)
+mat_uni2_final <- mat_uni2_clean[site_totals > 0, ]
 
 individual_plots <- list()
 
-area_names <- rownames(mat_uni1_final)
+area_names <- rownames(mat_uni2_final)
+area_names[grepl("[^A-Za-z0-9_-]", area_names)]
 
 # Loop iNEXT for each area
 for(i in 1:length(area_names)) {
-  single_area_data <- mat_uni1_final[i, , drop = FALSE]
+  single_area_data <- mat_uni2_final[i, , drop = FALSE]
   out_single <- iNEXT(t(single_area_data), q = 0, 
                       datatype = "abundance")
-  
+  save(out_single, file = "Data/out_single.RData")
   # Plot
   individual_plots[[i]] <- ggiNEXT(out_single, type = 1) +
     theme_bw() +
-    labs(title = area_names[i]) +
+    labs(title = UCs$nome_uc[i]) +
     xlab("Número de indivíduos") + 
     ylab("Riqueza de espécies") +
     theme(legend.position = "none")
   
   # Save
-  filename <- paste0("Figures/", area_names[i], "_rarefaction.png")
-  ggsave(filename, individual_plots[[i]], width = 8, height = 6, dpi = 300)
-  
+  clean_name <- gsub("[^A-Za-z0-9_-]", "_", UCs$nome_uc[i])
+  filename <- paste0("Figures/", clean_name, "_rarefaction.png")
+  ggsave(filename, individual_plots[[i]], 
+         width = 8, height = 6, dpi = 300)
   print(paste("Created and saved:", filename))
 }
 
 # Name the plots
 names(individual_plots) <- area_names
-individual_plots[1]
+individual_plots[i]
 
-save(out_single, file = "Data/out_single.RData")
 

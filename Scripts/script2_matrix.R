@@ -11,7 +11,11 @@ library(raster)
 terra::rast(system.file("ex/elev.tif", package="terra"))
 
 # Open shapefiles
+
 UCs <- terra::vect("Data/shp_cnuc_2024_02/cnuc_2024_02.shp")
+UCs <- UCs[UCs$esfera == c("Federal", "Estadual"), ]
+UCs <- UCs[UCs$categoria != "Reserva Particular do Patrimônio Natural",]
+UCs <- UCs[is.na(UCs$marinho) | UCs$marinho == "", ]
 BR <- terra::vect("Data/BR_UF_2024/BR_UF_2024.shp")
 
 # Set csv file as list
@@ -20,8 +24,6 @@ path_dir <- "Results/Distributions/"
 
 coordenadas <- list()
 pastas <- dir(path_dir)
-library(conflicted)
-conflict_prefer("select", "dplyr")
 for(i in 1:length(pastas)) {
   path_i <- paste0(path_dir, pastas[i])
   arquivo <- list.files(path_i, pattern = ".csv", full.names = TRUE)
@@ -38,15 +40,20 @@ for(i in 1:length(pastas)) {
 }
 
 
+
 # Plot coordinates and shapefiles
+
 coordenadas_all <- do.call(rbind, coordenadas)
 save(coordenadas_all, file = "Data/coordenadas_all.RData")
 st_crs(coordenadas_all) <- crs(UCs)
+
 g <- ggplot(st_as_sf(BR)) +
   geom_sf(color = "black", fill = "white") +
   geom_sf(data = st_as_sf(UCs), fill = "lightblue", lwd = 0) +
-  geom_sf(data = coordenadas_all, size = .1)
+  geom_sf(data = coordenadas_all,
+          size = .1)
 
+g
 ggsave(g, file ="Figures/Coordinates.tiff")
 
 # Organize matrix data
@@ -68,8 +75,13 @@ col_cord2 <- as.matrix(col_cord1)
 mat_uni <- lets.presab.grid.points(col_cord2,
                                    col_mat3, 
                             UCs, 
-                            "uc_id")
+                            "nome_uc")
+mat_uni1 <- lets.presab.grid.points(col_cord2,
+                                    col_mat3, 
+                                    UCs, 
+                                    "uc_id")
 save(mat_uni, file = "Data/mat_uni.RData")
+save(mat_uni1, file = "Data/mat_uni1.RData")
 
 rich_plus1 <- rowSums(mat_uni$PAM[, -1, drop = FALSE]) + 1
 colfunc <- colorRampPalette(c("#fff5f0", "#fb6a4a", "#67000d"))
@@ -77,8 +89,11 @@ colors <- c("white", colfunc(max(rich_plus1)))
 occs <- terra::vect(col_cord2, crs = crs)
 
 
-plot(mat_uni$grid, border = "gray40",
-     col = colors[rich_plus1]) 
+
+m <- plot(mat_uni$grid, border = "gray40",
+       col = colors[rich_plus1]) +
 plot(sf::st_geometry(coordenadas_all), add = TRUE) 
 plot(occs, cex = 0.5, col = rep(1:4, each = pastas), add = T)
+
+save(m, file = "Figures/Occurrences.tiff")
 
