@@ -1,5 +1,5 @@
 # PACKAGES
-library(letsR)
+library(letsR) #install_github("macroecology/letsR")
 library(sf)
 library(sampbias) # install_github("azizka/sampbias")
 library(rnaturalearth)
@@ -20,9 +20,12 @@ inside <- st_intersects(coords, br, sparse = FALSE)
 # Filter points that intersect with Brazil polygon
 coords <- coords[inside[,1], ]
 
-# If want to see the plot
-plot(sf::st_geometry(br))
-plot(sf::st_geometry(coords), add = TRUE, pch = 20, col = "red", alpha = .2)
+# Check unique species name
+coords$Species%>%unique()%>%length()
+
+# If want to see the plot (Takes some time)
+#plot(sf::st_geometry(br))
+#plot(sf::st_geometry(coords), add = TRUE, pch = 20, col = "red", alpha = .2)
 
 # Protected areas
 UCs <-  terra::vect("Data/shp_cnuc_2024_02/cnuc_2024_02.shp")
@@ -34,26 +37,53 @@ UCs <- UCs[is.na(UCs$marinho) | UCs$marinho == "", ]
 coo_mat <- st_coordinates(coords)
 crs = "+proj=longlat +datum=WGS84 +no_defs"
 
+
 pam_inv <- lets.presab.grid.points(coo_mat, coords$Species, 
                                    UCs, "uc_id",
                                    abundance = TRUE)
 
 
+#UCs_sf <- st_as_sf(UCs)
+#UCs_sf
+
+#UCs_sf<-UCs_sf%>%st_transform(., crs = st_crs(crs))
+
+# Check total number of occurrences
+pam_inv$PAM[,-1]%>%sum()
+
+# Check total number of species
+pam_inv$PAM%>%dim()
+
+# Total species not included in any protected area
+### (Unique invasive species retrived) - (total species maintained in pam_inv$PAM)
+(coords$Species%>%unique()%>%length())  -  (pam_inv$PAM[,-1]%>%dim())[2]
+
+
+
+# Get protected areas' names 
 pam_nogeo<-pam_inv$grid%>%sf::st_as_sf()%>%
   sf::st_drop_geometry()%>%select(uc_id,nome_uc)
 
-pam_nogeo%>%str()
 
-pam_named<-left_join(pam_inv$PAM, pam_nogeo, by=c("sample.unit"="uc_id"))
+# Get protected areas' names from the community matrix 
+pam_IDs_only<-pam_inv$PAM%>%select(sample.unit)
 
+# Merge protected areas' name from spatial object and community matrix 
+pam_namesID<-left_join(pam_IDs_only, pam_nogeo, by=c("sample.unit"="uc_id"))
 
-rownames(pam_named) <- pam_named$nome_uc
-pam_named<-pam_named%>%select(-nome_uc)
-pam_named%>%head()
+#Check
+pam_namesID%>%glimpse()
 
-pam_inv$PAM<-pam_named
+# Substitute protected area ID for protected area names in the community matrix
+pam_inv$PAM[,1]<-pam_namesID$nome_uc
 
+pam_inv$PAM%>%glimpse()
 
+# Check total number of occurrences. Must be equal to last check
+pam_inv$PAM[,-1]%>%sum()
+
+# Remove any potential rownames
+rownames(pam_inv$PAM)<-NULL
 
 ## Plot
 rich_plus1 <- rowSums(pam_inv$PAM[, -1, drop = FALSE]) + 1
@@ -65,7 +95,6 @@ plot(pam_inv$grid, border = "gray40",
 plot(sf::st_geometry(wrld_simpl), add = TRUE)
 
 # Save
-
 write.csv(pam_inv$PAM, file = "Data/presab.csv")
 
 # BIAS ANALYSES

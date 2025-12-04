@@ -17,11 +17,13 @@ library(cowplot)
 
 mydata <- read_csv("Data/presab.csv")
 
-community <- mydata[, -1]
+mydata
+community <- as.matrix(mydata[, -c(1,2)])
+rownames(community)<-mydata$sample.unit
 
 rem <- rowSums(community) < 10
 
-community2 <- t(community[!rem, ])
+community <- t(community[!rem, ])
 
 # iNEXT
 out <- iNEXT(community2, q = 0,
