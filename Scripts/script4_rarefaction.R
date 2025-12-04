@@ -26,7 +26,7 @@ rem <- rowSums(community) < 10
 community <- t(community[!rem, ])
 
 # iNEXT
-out <- iNEXT(community2, q = 0,
+out <- iNEXT(community, q = 0,
              datatype = "abundance",
              )
 
